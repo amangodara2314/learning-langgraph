@@ -1,22 +1,23 @@
-import { HumanMessage } from "@langchain/core/messages";
+import { stdin, stdout } from "process";
 import {
-  MessagesValue,
-  START,
-  StateGraph,
   StateSchema,
+  StateGraph,
+  END,
+  START,
+  MessagesValue,
+  MemorySaver,
 } from "@langchain/langgraph";
 import readline from "readline/promises";
-import * as z from "zod";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import callLlm from "./config/llm.js";
 
 const State = new StateSchema({
   messages: MessagesValue,
 });
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+const checkpointer = new MemorySaver();
+
+const rl = readline.createInterface({ input: stdin, output: stdout });
 
 const addUserMessage = async (state) => {
   const message = await rl.question(">>");
@@ -39,8 +40,12 @@ const graph = new StateGraph(State)
   .addNode("addAssistantMessage", addAssistantMessage)
   .addEdge(START, "addUserMessage")
   .addEdge("addUserMessage", "addAssistantMessage")
-  .addEdge("addAssistantMessage", "addUserMessage")
-  .compile();
+  .addEdge("addAssistantMessage", "__end__")
+  .compile({ checkpointer });
 
-const result = await graph.invoke({ messages: [] });
-console.log(result);
+const config = { configurable: { thread_id: "test-1" } };
+
+while (true) {
+  console.log("Starting new conversation...");
+  const result = await graph.invoke({ messages: [] }, config);
+}
