@@ -12,4 +12,8 @@ const callLlm = async (prompt) => {
   return response;
 };
 
+export const getModelWithTools = (tools) => {
+  return model.bindTools(tools);
+};
+
 export default callLlm;
