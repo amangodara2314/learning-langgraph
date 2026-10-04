@@ -18,16 +18,14 @@ const State = new StateSchema({
 });
 
 const getWeatherTool = tool(
-  async ({ lon, lat }) => {
-    return await getWeather(lon, lat);
+  async ({ city }) => {
+    return await getWeather(city);
   },
   {
     name: "get_weather_tool",
-    description:
-      "Get current weather of any location using longitude and latitude of that location",
+    description: "Get current weather of any city",
     schema: {
-      lon: z.string().describe("Longitude of a location"),
-      lat: z.string().describe("Latitude of a location"),
+      city: z.string().describe("Name of the city to get the weather for"),
     },
   },
 );
