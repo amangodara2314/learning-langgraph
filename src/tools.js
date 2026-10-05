@@ -15,22 +15,25 @@ import { HumanMessage } from "@langchain/core/messages";
 
 const State = new StateSchema({
   messages: MessagesValue,
+  userId: z.string(),
 });
 
 const getWeatherTool = tool(
-  async ({ city }) => {
+  async ({ city }, runtime) => {
+    console.log("Getting weather for city:", city);
+    console.log("Runtime:", runtime);
     return await getWeather(city);
   },
   {
     name: "get_weather_tool",
     description: "Get current weather of any city",
-    schema: {
+    schema: z.object({
       city: z.string().describe("Name of the city to get the weather for"),
-    },
+    }),
   },
 );
 
-const tools = [getWeatherTool];
+const tools = [getWeatherTool, deleteUserAccount];
 const model = getModelWithTools(tools);
 
 const rl = readline.createInterface({
