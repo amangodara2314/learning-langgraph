@@ -9,15 +9,16 @@ const agentState = new StateSchema({
 });
 
 const deleteUserAccount = tool(
-  async (_, runtime) => {
-    const userId = runtime.state.userId;
+  async ({ userId }, runtime) => {
     console.log(`Deleting account for user: ${userId}`);
     return `Account for user ${userId} deleted successfully.`;
   },
   {
     name: "delete_user_account_tool",
     description: "Delete a user account by user ID",
-    schema: z.object({}),
+    schema: z.object({
+      userId: z.string().describe("ID of the user account to delete"),
+    }),
   },
 );
 
@@ -52,7 +53,7 @@ const agent = await getAgent({
         get_user_profile_tool: false,
 
         delete_user_account_tool: {
-          allowedDecisions: ["approve", "reject"],
+          allowedDecisions: ["approve", "reject", "edit"],
           description: "Deleting user account needs approval",
         },
       },
@@ -67,6 +68,12 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
+const config = {
+  configurable: {
+    thread_id: "abc123",
+  },
+};
+
 while (true) {
   const userPrompt = await rl.question(">> ");
 
@@ -75,31 +82,49 @@ while (true) {
       messages: [{ role: "user", content: userPrompt }],
       userId: "abc123",
     },
-    {
-      configurable: {
-        thread_id: "abc123",
-      },
-    },
+    config,
   );
 
   if (result.__interrupt__) {
-    console.log("Human approval required:");
-    const ans = await rl.question("Approve or Reject >>");
-    if (ans.toLowerCase() == "approve") {
-      console.log("...confirmed");
-      await agent.invoke(
-        new Command({
-          resume: {
-            decisions: [{ type: "approve" }],
-          },
-        }),
-        {
-          configurable: {
-            thread_id: "abc123",
+    const answer = await rl.question("Approve / Edit / Reject >> ");
+
+    let decision;
+
+    if (answer.toLowerCase() === "approve") {
+      decision = {
+        type: "approve",
+      };
+    }
+
+    if (answer.toLowerCase() === "edit") {
+      const newUserId = await rl.question("New user ID >> ");
+
+      decision = {
+        type: "edit",
+        editedAction: {
+          name: "delete_user_account_tool",
+          args: {
+            userId: newUserId,
           },
         },
-      );
+      };
     }
+
+    if (answer.toLowerCase() === "reject") {
+      decision = {
+        type: "reject",
+        message: "Account deletion rejected by human.",
+      };
+    }
+
+    await agent.invoke(
+      new Command({
+        resume: {
+          decisions: [decision],
+        },
+      }),
+      config,
+    );
 
     continue;
   }
